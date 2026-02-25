@@ -61,8 +61,11 @@ backendUrlInput.addEventListener("input", () => {
   }, 500);
 });
 
-dashboardLink.addEventListener("click", () => {
-  chrome.tabs.create({ url: "http://localhost:3000" });
+dashboardLink.addEventListener("click", async () => {
+  const result = await chrome.storage.local.get("phantomConfig");
+  const config = result.phantomConfig || {};
+  const dashboardUrl = config.dashboardUrl || "http://localhost:3000";
+  chrome.tabs.create({ url: dashboardUrl });
 });
 
 loadConfig();

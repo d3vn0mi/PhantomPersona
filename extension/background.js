@@ -5,6 +5,8 @@
 
 const DEFAULT_CONFIG = {
   backendUrl: "http://localhost:8000",
+  dashboardUrl: "http://localhost:3000",
+  apiKey: "",
   enabled: true,
   actionsToday: 0,
   lastResetDate: new Date().toDateString(),
@@ -34,20 +36,46 @@ async function incrementActions(count = 1) {
   }
 }
 
-// --- Plan fetching ---
+// --- Auth headers ---
 
-async function fetchNextPlans(backendUrl) {
-  const resp = await fetch(`${backendUrl}/api/plans/next`);
-  if (!resp.ok) return [];
+function authHeaders(apiKey) {
+  const headers = { "Content-Type": "application/json" };
+  if (apiKey) headers["X-API-Key"] = apiKey;
+  return headers;
+}
+
+// --- Plan fetching with exponential backoff ---
+
+let consecutiveFailures = 0;
+
+async function fetchNextPlans(backendUrl, apiKey) {
+  const resp = await fetch(`${backendUrl}/api/plans/next`, {
+    headers: authHeaders(apiKey),
+  });
+  if (!resp.ok) {
+    throw new Error(`HTTP ${resp.status}`);
+  }
+  consecutiveFailures = 0;
   return resp.json();
 }
 
-async function completePlan(backendUrl, planId, actionsCompleted) {
+async function completePlan(backendUrl, apiKey, planId, actionsCompleted) {
   await fetch(`${backendUrl}/api/plans/${planId}/complete`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(apiKey),
     body: JSON.stringify({ actions_completed: actionsCompleted }),
   });
+}
+
+// --- Plan validation ---
+
+function isValidPlan(plan) {
+  if (!plan || !plan.plan_data) return false;
+  const d = plan.plan_data;
+  if (!Array.isArray(d.searches) && !Array.isArray(d.page_visits) && !Array.isArray(d.product_browsing)) {
+    return false;
+  }
+  return true;
 }
 
 // --- Tab execution (one at a time) ---
@@ -57,8 +85,17 @@ let executing = false;
 async function openPhantomTab(url, dwellMs = 5000) {
   return new Promise((resolve) => {
     chrome.tabs.create({ url, active: false }, (tab) => {
+      if (chrome.runtime.lastError) {
+        console.warn("[Phantom] Tab create failed:", chrome.runtime.lastError.message);
+        return resolve();
+      }
       setTimeout(() => {
-        chrome.tabs.remove(tab.id, () => resolve());
+        chrome.tabs.remove(tab.id, () => {
+          if (chrome.runtime.lastError) {
+            // Tab already closed — not an error
+          }
+          resolve();
+        });
       }, dwellMs);
     });
   });
@@ -92,11 +129,15 @@ async function executeProductBrowse(site, searchTerm) {
 
 // --- Plan execution ---
 
-async function executePlan(backendUrl, plan) {
+async function executePlan(backendUrl, apiKey, plan) {
+  if (!isValidPlan(plan)) {
+    console.warn("[Phantom] Skipping invalid plan:", plan?.id);
+    return;
+  }
+
   const data = plan.plan_data;
   const allActions = [];
 
-  // Merge all actions with their type and sort by time_offset_min
   for (const s of data.searches || []) {
     allActions.push({ type: "search", ...s });
   }
@@ -108,7 +149,6 @@ async function executePlan(backendUrl, plan) {
   }
   allActions.sort((a, b) => a.time_offset_min - b.time_offset_min);
 
-  // Execute a random subset (don't do everything at once)
   const batchSize = Math.min(5, allActions.length);
   const batch = allActions.slice(0, batchSize);
 
@@ -122,17 +162,16 @@ async function executePlan(backendUrl, plan) {
         await executeProductBrowse(action.site, action.search);
       }
       await incrementActions();
-      // Random pause between actions (10-60 seconds)
       await new Promise((r) => setTimeout(r, 10000 + Math.random() * 50000));
     } catch (err) {
       console.warn("[Phantom] Action failed:", err);
     }
   }
 
-  await completePlan(backendUrl, plan.id, batch.length);
+  await completePlan(backendUrl, apiKey, plan.id, batch.length);
 }
 
-// --- Alarm handler ---
+// --- Alarm handler with exponential backoff ---
 
 async function onAlarm() {
   if (executing) return;
@@ -140,14 +179,25 @@ async function onAlarm() {
   const config = await getConfig();
   if (!config.enabled) return;
 
+  // Exponential backoff: skip polls when failing
+  if (consecutiveFailures > 0) {
+    const backoffMs = Math.min(2 ** consecutiveFailures * 2000, 16000);
+    const skipChance = 1 - 1 / (consecutiveFailures + 1);
+    if (Math.random() < skipChance) {
+      console.log(`[Phantom] Backing off (${consecutiveFailures} failures), skipping poll`);
+      return;
+    }
+  }
+
   executing = true;
   try {
-    const plans = await fetchNextPlans(config.backendUrl);
+    const plans = await fetchNextPlans(config.backendUrl, config.apiKey);
     if (plans.length > 0) {
-      await executePlan(config.backendUrl, plans[0]);
+      await executePlan(config.backendUrl, config.apiKey, plans[0]);
     }
   } catch (err) {
-    console.warn("[Phantom] Polling error:", err);
+    consecutiveFailures++;
+    console.warn(`[Phantom] Polling error (failure #${consecutiveFailures}):`, err);
   } finally {
     executing = false;
   }
