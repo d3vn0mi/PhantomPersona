@@ -1,0 +1,36 @@
+# Replace phantom.example.com with your actual domain.
+# Caddy automatically obtains and renews Let's Encrypt TLS certificates.
+
+phantom.example.com {
+	# Web portal
+	handle /* {
+		reverse_proxy web:3000
+	}
+
+	# Backend API + Swagger docs
+	handle /api/* {
+		reverse_proxy daemon:8000
+	}
+	handle /docs* {
+		reverse_proxy daemon:8000
+	}
+	handle /openapi.json {
+		reverse_proxy daemon:8000
+	}
+	handle /health {
+		reverse_proxy daemon:8000
+	}
+
+	# Security headers
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	# Logging
+	log {
+		output stdout
+	}
+}
