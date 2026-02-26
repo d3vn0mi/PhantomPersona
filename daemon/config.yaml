@@ -1,0 +1,37 @@
+# Phantom Daemon Configuration
+
+llm:
+  provider: ollama          # ollama | openai | anthropic
+  model: llama3.2           # model name for the provider
+  base_url: http://localhost:11434
+
+scheduler:
+  # How often to generate new phantom activity (minutes)
+  browsing_interval: 15
+  search_interval: 10
+  shopping_interval: 30
+  # Active hours (24h format) — phantom activity outside these hours
+  # helps break your real usage pattern
+  active_hours: [0, 23]
+  # Max concurrent phantom tasks
+  max_concurrent: 3
+
+noise:
+  # Number of phantom search queries per cycle
+  searches_per_cycle: 5
+  # Number of phantom page visits per cycle
+  pages_per_cycle: 8
+  # Number of phantom product views per cycle
+  products_per_cycle: 3
+  # Persona rotation frequency (hours)
+  persona_rotation_hours: 4
+
+fingerprint:
+  # Randomize every N minutes
+  rotation_interval: 30
+  # Stay within plausible ranges to avoid detection
+  plausible_mode: true
+
+server:
+  host: 127.0.0.1
+  port: 7600

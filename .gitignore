@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+backend/package-lock.json
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# Next.js
+.next/
+out/
+
+# Build
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+*.egg-info/
+*.egg
+
+# Database
+*.db
+*.sqlite3

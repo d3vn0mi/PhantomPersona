@@ -1,76 +1,48 @@
-# PhantomPersona
+# PhantomPersona — Hide in Plain Sight
 
-## Prerequisites
+Privacy tool that degrades the quality of tracking data by injecting plausible noise
+into your digital footprint. Instead of blocking trackers (which is detectable),
+Phantom makes the collected data unreliable.
 
-- [Docker](https://docs.docker.com/get-docker/) and Docker Compose
+## Architecture
 
-## Quick Start (Docker)
+- **Backend** (Python/FastAPI): REST API with LLM-powered persona generation, browsing plan engine, SQLite storage
+- **Web Portal** (Next.js 14 + Tailwind): Dashboard, 5-step persona wizard, persona detail views, activity log
+- **Extension** (Chrome MV3): Background browsing, fingerprint spoofing, behavioral noise injection
+- **Daemon** (Python): Scheduled persona engine with config-driven orchestration
 
-Build and start both services:
-
-```bash
-docker compose up --build
-```
-
-| Service | URL |
-|---------|-----|
-| Web     | http://localhost:3000 |
-| Daemon  | http://localhost:8000 |
-
-Stop everything:
+## Quick Start
 
 ```bash
-docker compose down
-```
+# 1. Backend
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
 
-## Project Structure
-
-```
-web/       — Next.js frontend (port 3000)
-daemon/    — Python/FastAPI backend (port 8000)
-```
-
-## Local Development (without Docker)
-
-### Web
-
-```bash
+# 2. Web Portal
 cd web
 npm install
-npm run dev
-```
+npm run dev    # → http://localhost:3000
 
-### Daemon
+# 3. Extension
+# Load extension/ as unpacked in chrome://extensions
 
-```bash
+# 4. Daemon (optional)
 cd daemon
-pip install --upgrade pip setuptools
 pip install -e .
-phantom-daemon
+phantom-daemon --config config.yaml
 ```
 
-## Troubleshooting
+## Modules
 
-### `ModuleNotFoundError: No module named 'setuptools.backends'`
-
-Your system `setuptools` is too old. Upgrade it before installing the daemon:
-
-```bash
-pip install --upgrade pip setuptools
-```
-
-### `next.config.ts` not supported
-
-If you see:
-
-```
-Error: Configuring Next.js via 'next.config.ts' is not supported.
-```
-
-Upgrade Next.js or rename the config file:
-
-```bash
-npm install next@latest
-# or
-mv next.config.ts next.config.js
-```
+| Module | Layer | Description |
+|--------|-------|-------------|
+| LLM Engine | Backend/Daemon | Generates personas, search queries, browsing plans |
+| Persona API | Backend | CRUD + LLM-powered persona creation |
+| Plan Engine | Backend | Generates daily browsing plans per persona |
+| Web Dashboard | Web | Stats, persona grid, activity feed |
+| Persona Wizard | Web | 5-step guided persona creation |
+| Scheduler | Daemon | Controls timing/frequency of phantom activity |
+| Phantom Browser | Extension | Visits pages in background tabs |
+| Fingerprint Randomizer | Extension | Rotates canvas, WebGL, fonts, etc. |
+| Behavioral Camouflage | Extension | Jitters mouse, scroll, keystrokes |
