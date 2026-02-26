@@ -1,0 +1,35 @@
+# Production override — adds Caddy reverse proxy with automatic HTTPS.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+
+services:
+  web:
+    ports: !override []
+    restart: unless-stopped
+    environment:
+      - DAEMON_URL=http://daemon:8000
+      - NODE_ENV=production
+
+  daemon:
+    ports: !override []
+    restart: unless-stopped
+    env_file:
+      - .env
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - daemon
+
+volumes:
+  caddy_data:
+  caddy_config:

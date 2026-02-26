@@ -155,6 +155,90 @@ The extension will start executing the plan automatically within 5 minutes.
 docker compose down
 ```
 
+## Production Deployment (VPS)
+
+To serve PhantomPersona on the public internet you need HTTPS, a reverse proxy, and a domain name. The production setup uses [Caddy](https://caddyserver.com/) which handles TLS certificates from Let's Encrypt automatically.
+
+### Requirements
+
+- A VPS (any provider: DigitalOcean, Hetzner, Linode, etc.) with Docker installed
+- A domain name pointing to your VPS IP (A record)
+- Ports 80 and 443 open in your firewall
+
+### 1. DNS
+
+Create an A record pointing your domain to your VPS:
+
+```
+phantom.yourdomain.com  →  203.0.113.10  (your VPS IP)
+```
+
+### 2. Firewall
+
+```bash
+# Ubuntu/Debian (ufw)
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw allow 22/tcp
+sudo ufw enable
+
+# Block direct access to app ports (Caddy proxies internally)
+sudo ufw deny 3000/tcp
+sudo ufw deny 8000/tcp
+```
+
+### 3. Configure
+
+```bash
+git clone https://github.com/d3vn0mi/PhantomPersona.git
+cd PhantomPersona
+cp .env.example .env
+```
+
+Edit `.env` with your API keys, then edit `Caddyfile` and replace `phantom.example.com` with your actual domain:
+
+```
+phantom.yourdomain.com {
+    ...
+}
+```
+
+### 4. Launch
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+Caddy will automatically obtain a TLS certificate from Let's Encrypt. Your app will be available at `https://phantom.yourdomain.com` within a minute or two.
+
+### Verify
+
+```bash
+# Check all containers are running
+docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+
+# Check Caddy logs for certificate status
+docker compose -f docker-compose.yml -f docker-compose.prod.yml logs caddy
+
+# Test the health endpoint
+curl https://phantom.yourdomain.com/health
+```
+
+### Updating
+
+```bash
+git pull
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+### Production security notes
+
+> **Warning**: PhantomPersona does not currently have authentication (see [ROADMAP.md](ROADMAP.md) Phase 1.3). Until auth is implemented, anyone who knows your URL can access the API and manage personas. Consider one of these mitigations:
+>
+> - **HTTP basic auth via Caddy** — add `basicauth` to the Caddyfile
+> - **VPN/Tailscale** — only expose the service on a private network
+> - **IP allowlist** — restrict firewall rules to your IP
+
 ## Local Development (without Docker)
 
 ### Backend
@@ -243,8 +327,12 @@ PhantomPersona/
 │   ├── phantom_engine/       # Scheduler, config, LLM, server
 │   ├── config.yaml
 │   └── pyproject.toml
-├── docker-compose.yml        # Web + Backend services
+├── docker-compose.yml        # Dev: web + backend services
+├── docker-compose.prod.yml   # Prod: adds Caddy reverse proxy + HTTPS
+├── Caddyfile                 # Caddy config (domain, routing, headers)
 ├── .env.example              # Environment variable template
+├── .gitignore
+├── LICENSE
 └── ROADMAP.md                # Development roadmap
 ```
 
