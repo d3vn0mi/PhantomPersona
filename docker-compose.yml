@@ -1,0 +1,16 @@
+services:
+  web:
+    build:
+      context: ./web
+    ports:
+      - "3000:3000"
+    depends_on:
+      - daemon
+    environment:
+      - DAEMON_URL=http://daemon:8000
+
+  daemon:
+    build:
+      context: ./daemon
+    ports:
+      - "8000:8000"
