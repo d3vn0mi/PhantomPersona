@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Phantom",
   "description": "Hide in plain sight — data poisoning privacy tool",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "permissions": ["tabs", "storage", "alarms", "activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],
   "background": {
@@ -12,7 +12,13 @@
     {
       "matches": ["<all_urls>"],
       "js": ["content.js"],
-      "run_at": "document_idle"
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["lib/fingerprint.js", "lib/behavioral.js"],
+      "matches": ["<all_urls>"]
     }
   ],
   "action": {

@@ -56,6 +56,11 @@ export interface ActivityEntry {
   created_at: string;
 }
 
+function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("phantom_token");
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -68,13 +73,24 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${path}`;
+    const token = getToken();
+    const authHeaders: Record<string, string> = {};
+    if (token) authHeaders["Authorization"] = `Bearer ${token}`;
+
     const response = await fetch(url, {
       ...options,
       headers: {
         "Content-Type": "application/json",
+        ...authHeaders,
         ...options.headers,
       },
     });
+
+    if (response.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("phantom_token");
+      window.location.href = "/login";
+      throw new Error("Session expired");
+    }
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => "Unknown error");
