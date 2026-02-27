@@ -365,7 +365,7 @@ export default function PersonaDetailPage() {
                 Extended Profile
               </h2>
               <div className="mt-4 space-y-4">
-                {persona.profile.daily_routine && (
+                {!!persona.profile.daily_routine && (
                   <div>
                     <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
                       Daily Routine
